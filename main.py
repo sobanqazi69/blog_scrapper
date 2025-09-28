@@ -31,20 +31,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def convert_article_to_response(article: Article) -> ArticleResponse:
-    """Convert database Article to ArticleResponse with proper datetime serialization."""
-    return ArticleResponse(
-        id=article.id,
-        title=article.title,
-        content=article.content,
-        category=article.category,
-        url=article.url,
-        published_date=article.published_date.isoformat() if article.published_date else None,
-        scraped_at=article.scraped_at.isoformat(),
-        is_processed=article.is_processed
-    )
-
-
 # Pydantic models for API responses
 class ArticleResponse(BaseModel):
     """Response model for article data."""
@@ -83,6 +69,20 @@ class ErrorResponse(BaseModel):
     error: str
     detail: Optional[str] = None
     timestamp: str  # Changed to string for JSON serialization
+
+
+def convert_article_to_response(article: Article) -> ArticleResponse:
+    """Convert database Article to ArticleResponse with proper datetime serialization."""
+    return ArticleResponse(
+        id=article.id,
+        title=article.title,
+        content=article.content,
+        category=article.category,
+        url=article.url,
+        published_date=article.published_date.isoformat() if article.published_date else None,
+        scraped_at=article.scraped_at.isoformat(),
+        is_processed=article.is_processed
+    )
 
 
 # Application lifespan management
