@@ -1,0 +1,42 @@
+name: Dawn.com Scraper Cron Job
+
+on:
+  schedule:
+    # Run every 10 minutes
+    - cron: '*/10 * * * *'
+  # Also allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  scrape-articles:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Trigger Scraper
+      run: |
+        echo "🚀 Triggering Dawn.com scraper..."
+        
+        # Call the scraper endpoint
+        response=$(curl -s -X POST "https://blog-scrapper-teal.vercel.app/scraper/run")
+        
+        # Check if successful
+        if echo "$response" | grep -q "Scraper completed successfully"; then
+          echo "✅ Scraper completed successfully"
+          echo "Response: $response"
+        else
+          echo "❌ Scraper failed"
+          echo "Response: $response"
+          exit 1
+        fi
+    
+    - name: Check Results
+      run: |
+        echo "📊 Checking scraper results..."
+        
+        # Get articles count
+        articles_response=$(curl -s "https://blog-scrapper-teal.vercel.app/stats")
+        echo "Stats: $articles_response"
+        
+        # Get latest articles
+        articles_response=$(curl -s "https://blog-scrapper-teal.vercel.app/articles?page_size=3")
+        echo "Latest articles: $articles_response"
