@@ -24,7 +24,8 @@ from database import (
     get_article_count,
     search_articles,
     create_tables,
-    ensure_tables_exist
+    ensure_tables_exist,
+    add_article
 )
 from scraper import DawnScraper
 import asyncio
