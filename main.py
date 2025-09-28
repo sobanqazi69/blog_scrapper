@@ -439,6 +439,23 @@ async def stop_scraper():
         logger.error(f"Error stopping scraper: {e}")
         raise HTTPException(status_code=500, detail="Failed to stop scraper")
 
+@app.post("/scraper/run")
+async def run_scraper_now(db: Session = Depends(get_db)):
+    """Run scraper immediately and return results."""
+    try:
+        scraper = DawnScraper()
+        articles_scraped = scraper.scrape_articles(max_articles=10, db=db)
+        
+        return {
+            "message": f"Scraper completed successfully",
+            "articles_scraped": articles_scraped,
+            "status": "completed",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error running scraper: {e}")
+        raise HTTPException(status_code=500, detail=f"Error running scraper: {e}")
+
 # Error handlers
 @app.exception_handler(404)
 async def not_found_handler(request, exc):
