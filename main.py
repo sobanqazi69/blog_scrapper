@@ -258,9 +258,12 @@ async def activate_database():
         db_info = get_database_info()
         
         # Test database connection
-        with get_db() as db:
+        db = next(get_db())
+        try:
             articles = db.query(Article).all()
             article_count = len(articles)
+        finally:
+            db.close()
         
         return {
             "status": "success",
