@@ -16,12 +16,24 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Database configuration
-DATABASE_URL = "sqlite:///./dawn_articles.db"
+import os
+import tempfile
+
+# Use appropriate database for the environment
+if os.getenv("VERCEL"):
+    # For Vercel deployment - use temporary file in /tmp directory
+    db_path = "/tmp/dawn_articles.db"
+    DATABASE_URL = f"sqlite:///{db_path}"
+    connect_args = {}
+else:
+    # For local development - use file-based database
+    DATABASE_URL = "sqlite:///./dawn_articles.db"
+    connect_args = {"check_same_thread": False}
 
 # Create SQLAlchemy engine
 engine = create_engine(
     DATABASE_URL, 
-    connect_args={"check_same_thread": False},  # Needed for SQLite
+    connect_args=connect_args,
     echo=False  # Set to True for SQL query logging
 )
 
@@ -178,6 +190,7 @@ def get_all_articles(db: Session, skip: int = 0, limit: int = 100) -> list[Artic
         return db.query(Article).order_by(Article.scraped_at.desc()).offset(skip).limit(limit).all()
     except Exception as e:
         logger.error(f"Error retrieving articles: {e}")
+        # Return empty list instead of raising exception
         return []
 
 
