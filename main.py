@@ -304,6 +304,36 @@ async def refresh_database():
             "timestamp": datetime.utcnow().isoformat()
         }
 
+@app.post("/db-fix")
+async def fix_database():
+    """Completely fix database by recreating tables and checking data."""
+    try:
+        # Force create tables
+        Base.metadata.drop_all(bind=engine)  # Drop existing tables
+        Base.metadata.create_all(bind=engine)  # Create fresh tables
+        
+        # Test database connection
+        db = next(get_db())
+        try:
+            articles = db.query(Article).all()
+            article_count = len(articles)
+        finally:
+            db.close()
+        
+        return {
+            "status": "success",
+            "message": "Database completely fixed and recreated",
+            "current_articles": article_count,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error fixing database: {e}")
+        return {
+            "status": "error",
+            "message": f"Error fixing database: {str(e)}",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
 @app.get("/favicon.ico")
 async def favicon():
     """Handle favicon requests to prevent 500 errors."""

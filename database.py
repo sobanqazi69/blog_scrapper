@@ -107,9 +107,10 @@ def ensure_tables_exist():
 def get_database_info():
     """Get information about the current database."""
     try:
+        from sqlalchemy import text
         with engine.connect() as conn:
             # Check if articles table exists and get count
-            result = conn.execute("SELECT COUNT(*) FROM articles")
+            result = conn.execute(text("SELECT COUNT(*) FROM articles"))
             count = result.fetchone()[0]
             return {
                 "table_exists": True,
