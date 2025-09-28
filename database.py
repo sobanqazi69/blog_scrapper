@@ -106,6 +106,12 @@ def get_db() -> Session:
     Dependency function to get database session.
     This is used by FastAPI to inject database sessions into endpoints.
     """
+    # Ensure tables exist before creating session
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        logger.error(f"Error ensuring tables exist in get_db: {e}")
+    
     db = SessionLocal()
     try:
         yield db

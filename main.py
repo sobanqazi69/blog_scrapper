@@ -211,6 +211,25 @@ async def health_check():
         service="Dawn.com Article Scraper API"
     )
 
+@app.get("/db-test")
+async def test_database(db: Session = Depends(get_db)):
+    """Test database connection and table creation."""
+    try:
+        # Try to query the articles table
+        articles = db.query(Article).limit(1).all()
+        return {
+            "status": "success", 
+            "message": "Database connection working",
+            "articles_count": len(articles),
+            "table_exists": True
+        }
+    except Exception as e:
+        return {
+            "status": "error", 
+            "message": f"Database error: {str(e)}",
+            "table_exists": False
+        }
+
 @app.get("/favicon.ico")
 async def favicon():
     """Handle favicon requests to prevent 500 errors."""
