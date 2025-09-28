@@ -23,7 +23,8 @@ from database import (
     get_articles_by_category,
     get_article_count,
     search_articles,
-    create_tables
+    create_tables,
+    ensure_tables_exist
 )
 from scraper import DawnScraper
 import asyncio
@@ -147,8 +148,8 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Dawn.com Article Scraper API")
     try:
-        create_tables()
-        logger.info("Database tables created successfully")
+        ensure_tables_exist()
+        logger.info("Database tables verified/created successfully")
         
         # Start background scraper
         start_background_scraper()

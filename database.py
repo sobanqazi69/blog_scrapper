@@ -89,6 +89,23 @@ def create_tables():
         raise
 
 
+def ensure_tables_exist():
+    """Ensure tables exist, create them if they don't."""
+    try:
+        # Check if articles table exists
+        with engine.connect() as conn:
+            result = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='articles'")
+            if not result.fetchone():
+                logger.info("Articles table not found, creating tables...")
+                create_tables()
+            else:
+                logger.info("Articles table already exists")
+    except Exception as e:
+        logger.error(f"Error checking/creating tables: {e}")
+        # Try to create tables anyway
+        create_tables()
+
+
 def get_db() -> Session:
     """
     Dependency function to get database session.
@@ -113,6 +130,9 @@ def add_article(db: Session, article_data: dict) -> Optional[Article]:
         Article object if successfully added, None if duplicate or error
     """
     try:
+        # Ensure tables exist before adding
+        ensure_tables_exist()
+        
         # Check if article already exists by title or URL
         existing_article = None
         if article_data.get('title'):
@@ -187,6 +207,8 @@ def get_all_articles(db: Session, skip: int = 0, limit: int = 100) -> list[Artic
         List of Article objects
     """
     try:
+        # Ensure tables exist before querying
+        ensure_tables_exist()
         return db.query(Article).order_by(Article.scraped_at.desc()).offset(skip).limit(limit).all()
     except Exception as e:
         logger.error(f"Error retrieving articles: {e}")
