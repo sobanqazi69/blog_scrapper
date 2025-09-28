@@ -31,6 +31,20 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def convert_article_to_response(article: Article) -> ArticleResponse:
+    """Convert database Article to ArticleResponse with proper datetime serialization."""
+    return ArticleResponse(
+        id=article.id,
+        title=article.title,
+        content=article.content,
+        category=article.category,
+        url=article.url,
+        published_date=article.published_date.isoformat() if article.published_date else None,
+        scraped_at=article.scraped_at.isoformat(),
+        is_processed=article.is_processed
+    )
+
+
 # Pydantic models for API responses
 class ArticleResponse(BaseModel):
     """Response model for article data."""
@@ -39,8 +53,8 @@ class ArticleResponse(BaseModel):
     content: str
     category: Optional[str]
     url: Optional[str]
-    published_date: Optional[datetime]
-    scraped_at: datetime
+    published_date: Optional[str]  # Changed to string for JSON serialization
+    scraped_at: str  # Changed to string for JSON serialization
     is_processed: bool
     
     class Config:
@@ -61,14 +75,14 @@ class ScrapingStatsResponse(BaseModel):
     total_scraped: int
     total_saved: int
     duplicates_skipped: int
-    timestamp: datetime
+    timestamp: str  # Changed to string for JSON serialization
 
 
 class ErrorResponse(BaseModel):
     """Response model for errors."""
     error: str
     detail: Optional[str] = None
-    timestamp: datetime
+    timestamp: str  # Changed to string for JSON serialization
 
 
 # Application lifespan management
@@ -159,7 +173,7 @@ async def get_articles(
         total_pages = (total_count + page_size - 1) // page_size
         
         # Convert to response models
-        article_responses = [ArticleResponse.from_orm(article) for article in articles]
+        article_responses = [convert_article_to_response(article) for article in articles]
         
         return ArticleListResponse(
             articles=article_responses,
@@ -194,7 +208,7 @@ async def get_article(
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
         
-        return ArticleResponse.from_orm(article)
+        return convert_article_to_response(article)
         
     except HTTPException:
         raise
@@ -236,7 +250,7 @@ async def get_articles_by_category_endpoint(
         total_pages = (total_count + page_size - 1) // page_size
         
         # Convert to response models
-        article_responses = [ArticleResponse.from_orm(article) for article in articles]
+        article_responses = [convert_article_to_response(article) for article in articles]
         
         return ArticleListResponse(
             articles=article_responses,
@@ -284,7 +298,7 @@ async def search_articles_endpoint(
         total_pages = (total_count + page_size - 1) // page_size
         
         # Convert to response models
-        article_responses = [ArticleResponse.from_orm(article) for article in articles]
+        article_responses = [convert_article_to_response(article) for article in articles]
         
         return ArticleListResponse(
             articles=article_responses,
@@ -331,7 +345,7 @@ async def scrape_articles(
             total_scraped=0,  # Will be updated by background task
             total_saved=0,
             duplicates_skipped=0,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow().isoformat()
         )
         
     except Exception as e:
@@ -395,7 +409,7 @@ async def not_found_handler(request, exc):
         content=ErrorResponse(
             error="Not Found",
             detail="The requested resource was not found",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow().isoformat()
         ).dict()
     )
 
@@ -408,7 +422,7 @@ async def internal_error_handler(request, exc):
         content=ErrorResponse(
             error="Internal Server Error",
             detail="An unexpected error occurred",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow().isoformat()
         ).dict()
     )
 
