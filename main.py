@@ -257,7 +257,31 @@ async def activate_database():
         # Get current database info
         db_info = get_database_info()
         
-        # Test database connection
+        return {
+            "status": "success",
+            "message": "Database activated successfully",
+            "database_info": db_info,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error activating database: {e}")
+        return {
+            "status": "error",
+            "message": f"Error activating database: {str(e)}",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+@app.get("/db-refresh")
+async def refresh_database():
+    """Refresh database connection and show current status."""
+    try:
+        # Ensure tables exist
+        ensure_tables_exist()
+        
+        # Get database info
+        db_info = get_database_info()
+        
+        # Get articles count using the proper method
         db = next(get_db())
         try:
             articles = db.query(Article).all()
@@ -267,16 +291,16 @@ async def activate_database():
         
         return {
             "status": "success",
-            "message": "Database activated successfully",
+            "message": "Database refreshed successfully",
             "database_info": db_info,
             "current_articles": article_count,
             "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
-        logger.error(f"Error activating database: {e}")
+        logger.error(f"Error refreshing database: {e}")
         return {
             "status": "error",
-            "message": f"Error activating database: {str(e)}",
+            "message": f"Error refreshing database: {str(e)}",
             "timestamp": datetime.utcnow().isoformat()
         }
 
