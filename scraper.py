@@ -423,7 +423,7 @@ class DawnScraper:
     
     def scrape_latest_articles(self, max_articles: int = 50) -> List[Dict[str, str]]:
         """
-        Scrape the latest articles from Dawn.com.
+        Scrape the latest articles from Dawn.com, prioritizing recent articles.
         
         Args:
             max_articles: Maximum number of articles to scrape
@@ -432,44 +432,98 @@ class DawnScraper:
             List of article data dictionaries
         """
         try:
-            logger.info("Starting to scrape latest articles from Dawn.com")
+            logger.info("🔍 Starting to scrape latest articles from Dawn.com")
             
             # Fetch the latest news page
             soup = self.fetch_page(self.latest_news_url)
             if not soup:
-                logger.error("Failed to fetch latest news page")
+                logger.error("❌ Failed to fetch latest news page")
                 return []
             
             # Extract article links
             article_links = self.extract_article_links(soup)
             if not article_links:
-                logger.warning("No article links found")
+                logger.warning("⚠️ No article links found")
                 return []
             
             # Limit the number of articles to scrape
             article_links = article_links[:max_articles]
+            logger.info(f"📰 Found {len(article_links)} article links to check")
             
             # Scrape each article
             articles = []
+            new_articles = 0
+            recent_articles = 0  # Articles from last 10 minutes
+            
             for i, url in enumerate(article_links, 1):
-                logger.info(f"Scraping article {i}/{len(article_links)}: {url}")
+                logger.info(f"🔍 Checking article {i}/{len(article_links)}: {url}")
                 
                 article_data = self.scrape_article(url)
                 if article_data:
                     articles.append(article_data)
-                    logger.info(f"Successfully scraped: {article_data['title'][:50]}...")
+                    new_articles += 1
+                    
+                    # Check if article is from last 10 minutes
+                    if self.is_recent_article(article_data):
+                        recent_articles += 1
+                        logger.info(f"🆕 RECENT: {article_data['title'][:50]}...")
+                    else:
+                        logger.info(f"✅ Scraped: {article_data['title'][:50]}...")
                 else:
-                    logger.warning(f"Failed to scrape article: {url}")
+                    logger.debug(f"⏭️ Skipped: {url}")
                 
-                # Add delay to be respectful to the server
-                time.sleep(1)
+                # Add small delay to be respectful to the server
+                time.sleep(0.3)  # Even faster for recent article detection
             
-            logger.info(f"Scraping completed. Found {len(articles)} articles")
+            logger.info(f"🎉 Scraping completed: {len(articles)} articles found, {new_articles} new, {recent_articles} recent")
             return articles
             
         except Exception as e:
-            logger.error(f"Error scraping latest articles: {e}")
+            logger.error(f"❌ Error scraping latest articles: {e}")
             return []
+    
+    def is_recent_article(self, article_data: Dict[str, str]) -> bool:
+        """
+        Check if an article was published in the last 10 minutes.
+        
+        Args:
+            article_data: Article data dictionary
+            
+        Returns:
+            True if article is from last 10 minutes, False otherwise
+        """
+        try:
+            published_date = article_data.get('published_date')
+            if not published_date:
+                return False
+            
+            # Parse the published date
+            if isinstance(published_date, str):
+                from datetime import datetime
+                try:
+                    # Try different date formats
+                    for fmt in ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%d %b, %Y %I:%M%p']:
+                        try:
+                            pub_date = datetime.strptime(published_date, fmt)
+                            break
+                        except ValueError:
+                            continue
+                    else:
+                        return False
+                except:
+                    return False
+            else:
+                pub_date = published_date
+            
+            # Check if article is from last 10 minutes
+            now = datetime.utcnow()
+            time_diff = (now - pub_date).total_seconds()
+            
+            return time_diff <= 600  # 600 seconds = 10 minutes
+            
+        except Exception as e:
+            logger.debug(f"Error checking if article is recent: {e}")
+            return False
     
     def save_articles_to_db(self, articles: List[Dict[str, str]]) -> int:
         """

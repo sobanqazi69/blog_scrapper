@@ -26,10 +26,17 @@ from database import (
     create_tables
 )
 from scraper import DawnScraper
+import asyncio
+import threading
+import time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Global variables for background scraping
+scraper_running = False
+scraper_thread = None
 
 # Pydantic models for API responses
 class ArticleResponse(BaseModel):
@@ -69,6 +76,70 @@ def convert_article_to_response(article: Article) -> ArticleResponse:
         is_processed=article.is_processed
     )
 
+def background_scraper():
+    """Background scraper that runs continuously - every 2 minutes to catch articles within 10 minutes."""
+    global scraper_running
+    scraper_running = True
+    
+    logger.info("🚀 Background scraper started - 24/7 continuous monitoring (every 2 minutes)")
+    
+    while scraper_running:
+        try:
+            current_hour = datetime.utcnow().hour
+            
+            # Always check every 2 minutes to catch articles within 10 minutes
+            wait_time = 120  # 2 minutes
+            max_articles = 50  # Check more articles to catch recent ones
+            
+            if 6 <= current_hour <= 22:  # Peak hours (6 AM to 10 PM UTC)
+                logger.info("🌅 Peak hours - checking every 2 minutes for recent articles")
+            else:  # Off-peak hours
+                logger.info("🌙 Off-peak hours - checking every 2 minutes for recent articles")
+            
+            logger.info("🔍 Starting continuous scraping for recent articles...")
+            scraper = DawnScraper()
+            articles = scraper.scrape_latest_articles(max_articles=max_articles)
+            saved_count = scraper.save_articles_to_db(articles)
+            
+            if saved_count > 0:
+                logger.info(f"🎉 NEW ARTICLES FOUND! {len(articles)} scraped, {saved_count} saved")
+                # Log the most recent article
+                if articles:
+                    latest = articles[0]
+                    logger.info(f"📰 Latest: {latest.get('title', 'No title')[:60]}...")
+            else:
+                logger.info(f"📰 No new articles found. {len(articles)} checked, {saved_count} saved")
+            
+            # Wait 2 minutes before next check
+            logger.info(f"⏰ Waiting 2 minutes before next check...")
+            time.sleep(wait_time)
+            
+        except Exception as e:
+            logger.error(f"❌ Error in background scraping: {e}")
+            # Wait 1 minute before retrying on error
+            logger.info("⏰ Waiting 1 minute before retry...")
+            time.sleep(60)  # 1 minute
+    
+    logger.info("Background scraper stopped")
+
+def start_background_scraper():
+    """Start the background scraper thread."""
+    global scraper_thread, scraper_running
+    
+    if not scraper_running:
+        scraper_thread = threading.Thread(target=background_scraper, daemon=True)
+        scraper_thread.start()
+        logger.info("Background scraper thread started")
+    else:
+        logger.info("Background scraper already running")
+
+def stop_background_scraper():
+    """Stop the background scraper thread."""
+    global scraper_running
+    
+    scraper_running = False
+    logger.info("Background scraper stop requested")
+
 # Application lifespan management
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -78,13 +149,19 @@ async def lifespan(app: FastAPI):
     try:
         create_tables()
         logger.info("Database tables created successfully")
+        
+        # Start background scraper
+        start_background_scraper()
+        logger.info("Background scraper started")
+        
     except Exception as e:
-        logger.error(f"Error creating database tables: {e}")
+        logger.error(f"Error during startup: {e}")
     
     yield
     
     # Shutdown
     logger.info("Shutting down Dawn.com Article Scraper API")
+    stop_background_scraper()
 
 # Create FastAPI application
 app = FastAPI(
@@ -301,6 +378,46 @@ async def get_stats(db: Session = Depends(get_db)):
             "last_updated": datetime.utcnow().isoformat(),
             "error": "Database unavailable"
         }
+
+@app.get("/scraper/status", response_model=dict)
+async def get_scraper_status():
+    """Get background scraper status."""
+    global scraper_running, scraper_thread
+    
+    return {
+        "scraper_running": scraper_running,
+        "scraper_thread_alive": scraper_thread.is_alive() if scraper_thread else False,
+        "status": "running" if scraper_running else "stopped",
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+@app.post("/scraper/start")
+async def start_scraper():
+    """Start the background scraper."""
+    try:
+        start_background_scraper()
+        return {
+            "message": "Background scraper started",
+            "status": "running",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error starting scraper: {e}")
+        raise HTTPException(status_code=500, detail="Failed to start scraper")
+
+@app.post("/scraper/stop")
+async def stop_scraper():
+    """Stop the background scraper."""
+    try:
+        stop_background_scraper()
+        return {
+            "message": "Background scraper stopped",
+            "status": "stopped",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error stopping scraper: {e}")
+        raise HTTPException(status_code=500, detail="Failed to stop scraper")
 
 # Error handlers
 @app.exception_handler(404)
