@@ -247,6 +247,36 @@ async def database_info():
             "message": f"Error getting database info: {str(e)}"
         }
 
+@app.post("/db-activate")
+async def activate_database():
+    """Safely activate/initialize database without destroying existing data."""
+    try:
+        # Ensure tables exist (this won't destroy existing data)
+        ensure_tables_exist()
+        
+        # Get current database info
+        db_info = get_database_info()
+        
+        # Test database connection
+        with get_db() as db:
+            articles = db.query(Article).all()
+            article_count = len(articles)
+        
+        return {
+            "status": "success",
+            "message": "Database activated successfully",
+            "database_info": db_info,
+            "current_articles": article_count,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error activating database: {e}")
+        return {
+            "status": "error",
+            "message": f"Error activating database: {str(e)}",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
 @app.get("/favicon.ico")
 async def favicon():
     """Handle favicon requests to prevent 500 errors."""
