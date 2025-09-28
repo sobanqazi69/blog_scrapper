@@ -444,11 +444,20 @@ async def run_scraper_now(db: Session = Depends(get_db)):
     """Run scraper immediately and return results."""
     try:
         scraper = DawnScraper()
-        articles_scraped = scraper.scrape_articles(max_articles=10, db=db)
+        articles = scraper.scrape_latest_articles(max_articles=10)
+        
+        # Save articles to database
+        articles_saved = 0
+        for article_data in articles:
+            if article_data:
+                saved_article = add_article(db, article_data)
+                if saved_article:
+                    articles_saved += 1
         
         return {
             "message": f"Scraper completed successfully",
-            "articles_scraped": articles_scraped,
+            "articles_scraped": len(articles),
+            "articles_saved": articles_saved,
             "status": "completed",
             "timestamp": datetime.utcnow().isoformat()
         }
