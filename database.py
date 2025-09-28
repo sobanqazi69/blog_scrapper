@@ -21,10 +21,14 @@ import tempfile
 
 # Use appropriate database for the environment
 if os.getenv("VERCEL"):
-    # For Vercel deployment - use temporary file in /tmp directory
+    # For Vercel deployment - use persistent file in /tmp
+    # This ensures data persists between function invocations
     db_path = "/tmp/dawn_articles.db"
     DATABASE_URL = f"sqlite:///{db_path}"
     connect_args = {}
+    
+    # Ensure the directory exists
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
 else:
     # For local development - use file-based database
     DATABASE_URL = "sqlite:///./dawn_articles.db"
@@ -99,6 +103,26 @@ def ensure_tables_exist():
         logger.error(f"Error ensuring tables exist: {e}")
         # This is a critical error, but we'll continue
         pass
+
+def get_database_info():
+    """Get information about the current database."""
+    try:
+        with engine.connect() as conn:
+            # Check if articles table exists and get count
+            result = conn.execute("SELECT COUNT(*) FROM articles")
+            count = result.fetchone()[0]
+            return {
+                "table_exists": True,
+                "article_count": count,
+                "database_url": DATABASE_URL
+            }
+    except Exception as e:
+        return {
+            "table_exists": False,
+            "article_count": 0,
+            "error": str(e),
+            "database_url": DATABASE_URL
+        }
 
 
 def get_db() -> Session:

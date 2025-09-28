@@ -25,7 +25,8 @@ from database import (
     search_articles,
     create_tables,
     ensure_tables_exist,
-    add_article
+    add_article,
+    get_database_info
 )
 from scraper import DawnScraper
 import asyncio
@@ -229,6 +230,21 @@ async def test_database(db: Session = Depends(get_db)):
             "status": "error", 
             "message": f"Database error: {str(e)}",
             "table_exists": False
+        }
+
+@app.get("/db-info")
+async def database_info():
+    """Get detailed database information."""
+    try:
+        db_info = get_database_info()
+        return {
+            "status": "success",
+            "database_info": db_info
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error getting database info: {str(e)}"
         }
 
 @app.get("/favicon.ico")
